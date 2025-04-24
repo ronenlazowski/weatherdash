@@ -27,6 +27,19 @@ String urlEncode(const String &str) {
   }
   return encodedStr;
 }
+void connectToWiFi() {
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  unsigned long startAttemptTime = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < 10000) {
+    delay(500);
+    Serial.print(".");
+  }
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("Failed to connect to WiFi");
+  } else {
+    Serial.println("Connected to WiFi");
+  }
+}
 
 void fetchWeather() {
   String url = "https://api.openweathermap.org/data/2.5/weather?q=" +
@@ -39,7 +52,7 @@ void fetchWeather() {
 
   if (httpCode > 0) {
     String payload = http.getString();
-    DynamicJsonDocument doc(1024);
+    DynamicJsonDocument doc(4096);
     DeserializationError error = deserializeJson(doc, payload);
     if (!error) {
       float temp = doc["main"]["temp"];
@@ -123,13 +136,8 @@ String generateDashboard() {
   html += "<br><form action=\"/refresh\" method=\"get\" onsubmit=\"showLoading()\">";
   html += "<div class='city-form'>";
   html += "<label for=\"citySelect\">Select a city:</label>";
-  html += "<select id=\"citySelect\" name=\"city\" onchange=\"window.location.href='/changeCity?city=' + this.value\">";
-  html += "<option value=\"Boston\" " + String(currentCity == "Boston" ? "selected" : "") + ">Boston</option>";
-  html += "<option value=\"New York\" " + String(currentCity == "New York" ? "selected" : "") + ">New York</option>";
-  html += "<option value=\"Los Angeles\" " + String(currentCity == "Los Angeles" ? "selected" : "") + ">Los Angeles</option>";
-  html += "<option value=\"Chicago\" " + String(currentCity == "Chicago" ? "selected" : "") + ">Chicago</option>";
-  html += "<option value=\"Miami\" " + String(currentCity == "Miami" ? "selected" : "") + ">Miami</option>";
-  html += "</select></div>";
+  html += generateCityDropdown();
+  html += "</div>";
   html += "<br><button type=\"submit\" id=\"refreshButton\">🔄 Refresh Weather</button>";
   html += "<span id='loading' class='loading'>Loading...</span>";
   html += "</form></div><div class='footer'>Powered by ESP32 and OpenWeatherMap 🌍</div>";
@@ -137,15 +145,28 @@ String generateDashboard() {
   return html;
 }
 
+const String allowedCities[] = {"Boston", "New York", "Los Angeles", "Chicago", "Miami"};
+
+bool isValidCity(const String& city) {
+  for (const String& allowedCity : allowedCities) {
+    if (city == allowedCity) return true;
+  }
+  return false;
+}
+
+String generateCityDropdown() {
+  String dropdown = "<select id=\"citySelect\" name=\"city\" onchange=\"window.location.href='/changeCity?city=' + this.value\">";
+  for (const String& city : allowedCities) {
+    dropdown += "<option value=\"" + city + "\" " + String(currentCity == city ? "selected" : "") + ">" + city + "</option>";
+  }
+  dropdown += "</select>";
+  return dropdown;
+}
+
+
 void setup() {
   Serial.begin(115200);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  WiFi.setSleep(false);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println("\nConnected to WiFi");
+  connectToWiFi();
 
   if (!MDNS.begin("weather")) {
     Serial.println("Error starting mDNS");
@@ -157,15 +178,35 @@ void setup() {
     server.send(200, "text/html", generateDashboard());
   });
 
-  server.on("/refresh", HTTP_GET, []() {
+  static unsigned long lastRefreshMillis = 0;
+  server.on("/refresh", HTTP_GET, [&]() {
+    if (millis() - lastRefreshMillis < 2000) {
+      server.send(429, "text/plain", "Too many requests. Please wait.");
+      return;
+    }
+    lastRefreshMillis = millis();
     fetchWeather();
     server.send(200, "text/html", generateDashboard());
   });
 
+  static unsigned long lastCityChangeMillis = 0;
+  const unsigned long cityChangeInterval = 1000;
+
   server.on("/changeCity", HTTP_GET, []() {
+    if (millis() - lastCityChangeMillis < cityChangeInterval) {
+      server.send(429, "text/plain", "Too many requests. Please wait.");
+      return;
+    }
     if (server.hasArg("city")) {
-      currentCity = server.arg("city");
-      fetchWeather();
+      String newCity = server.arg("city");
+      if (isValidCity(newCity)) {
+        currentCity = newCity;
+        fetchWeather();
+        lastCityChangeMillis = millis();
+      } else {
+        server.send(400, "text/plain", "Invalid city");
+        return;
+      }
     }
     server.send(200, "text/html", generateDashboard());
   });
