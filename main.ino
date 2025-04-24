@@ -132,7 +132,7 @@ String generateDashboard() {
   html += "</select></div>";
   html += "<br><button type=\"submit\" id=\"refreshButton\">🔄 Refresh Weather</button>";
   html += "<span id='loading' class='loading'>Loading...</span>";
-  html += "</form></div><div class='footer'>Powered by ESP32 🌍</div>";
+  html += "</form></div><div class='footer'>Powered by ESP32 and OpenWeatherMap 🌍</div>";
   html += "</body></html>";
   return html;
 }
