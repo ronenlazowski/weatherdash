@@ -9,6 +9,8 @@ This project creates a simple, colorful weather dashboard hosted on an ESP32 mic
 - Customizable and responsive dashboard design.
 - Weather data refreshes every 1 hour (configurable).
 - Real-time updates with a responsive design and animations.
+- Basic rate limiting to prevent spammy refreshes and city changes.
+- Predefined list of cities ensures reliable and secure updates.
 
 ## Requirements
 - **Hardware:**
@@ -51,26 +53,33 @@ Sign up for a free API key at [OpenWeatherMap](https://openweathermap.org/api) a
 Upload the code to your ESP32 board using the Arduino IDE or PlatformIO. After uploading, open the Serial Monitor to check if your ESP32 connects to the Wi-Fi.
 
 ### 6. Access the Dashboard
-After the ESP32 connects to Wi-Fi, it will host the weather dashboard. You can access it from your local network by entering the ESP32’s IP address into your browser (or weather.local).
+After the ESP32 connects to Wi-Fi, it will host the weather dashboard. You can access it from your local network by entering the ESP32’s IP address into your browser (or `http://weather.local`).
 
 ## How to Use the Dashboard
-1. **Select a City**: Use the dropdown menu to select a city.
+1. **Select a City**: Use the dropdown menu to select from a list of predefined cities.
 2. **Refresh Weather**: Click the “🔄 Refresh Weather” button to update the weather data.
 3. **Automatic Updates**: The weather data automatically refreshes every 1 hour.
+4. **Validation & Rate Limiting**:
+   - Only supported cities from a fixed list can be selected.
+   - Requests to refresh weather or change cities are rate-limited to prevent spam (e.g., no more than once every second).
 
 ## Code Explanation
 ### `fetchWeather()`:
-This function fetches weather data from the OpenWeatherMap API, processes it, and formats it into a string for display. It includes information such as temperature, humidity, and weather condition (with corresponding emojis).
+This function fetches weather data from the OpenWeatherMap API, processes it, and formats it into a string for display. It includes temperature, humidity, condition info, and emojis.
 
 ### `generateDashboard()`:
-This function generates the HTML content for the weather dashboard, including city selection, weather information, and styling. It uses CSS for layout and JavaScript for the loading spinner during weather refresh.
+Generates the HTML content for the weather dashboard, including city selection, weather info, and responsive design with CSS and JavaScript.
 
 ### `setup()` and `loop()`:
-The `setup()` function initializes the ESP32, connects to Wi-Fi, starts the mDNS service, and sets up the web server. The `loop()` function continually checks for client requests.
+- `setup()` initializes the ESP32, connects to Wi-Fi, starts mDNS, and sets up the web server routes (including city validation and request throttling).
+- `loop()` handles ongoing client requests and triggers hourly weather updates.
 
 ## Customization
-- You can modify the list of cities available in the city dropdown menu.
-- The design and colors of the dashboard can be customized by editing the CSS within `generateDashboard()`.
+- You can modify the list of available cities in the code:
+  ```cpp
+  const String allowedCities[] = {"Boston", "New York", "Los Angeles", "Chicago", "Miami"};
+  ```
+- The dashboard style and behavior (colors, layout, intervals) can be adjusted by editing the HTML/CSS in `generateDashboard()`.
 
 ## License
 This project is licensed under [The Unlicense](https://github.com/ronenlazowski/weatherdash/blob/main/LICENSE).
