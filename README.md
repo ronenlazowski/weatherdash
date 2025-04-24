@@ -81,3 +81,5 @@ This project is licensed under [The Unlicense](https://github.com/ronenlazowski/
 
 ## Contributing
 Feel free to fork the repository, submit pull requests, or open issues if you find bugs or have suggestions for improvements!
+
+![Weather Dashboard Screenshot](https://i.imgur.com/ISZYmdO.png)
